@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 파이썬 문법 에러를 원천 차단하는 Raw String 단일 블록
+# 파이썬 SyntaxError를 완벽히 차단하는 Raw String 단일 코드 블록
 GAME_HTML = r"""
 <!DOCTYPE html>
 <html lang="ko">
@@ -39,15 +39,34 @@ GAME_HTML = r"""
         #stoves-container { position: absolute; top: 190px; left: 135px; width: 440px; height: 230px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 12px; background: #cfd8dc; border: 5px solid #78909c; border-radius: 15px; }
         .stove-slot { position: relative; width: 195px; height: 95px; background: #b0bec5; border: 3px dashed #546e7a; border-radius: 10px; display: flex; justify-content: center; align-items: center; }
 
-        /* 냄비 & 라면 실제 재료 커스텀 CSS 연출 */
+        /* 냄비 & 보글보글 애니메이션 */
         .pot { position: relative; width: 165px; height: 80px; background: linear-gradient(135deg, #ffd700 0%, #e6b800 100%); border: 5px solid #b8860b; border-radius: 0 0 50px 50px; cursor: grab; overflow: hidden; display: flex; justify-content: center; align-items: flex-end; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
         .pot:active { cursor: grabbing; }
         .pot-water { position: absolute; bottom: 0; width: 100%; height: 0%; background: rgba(64, 196, 255, 0.6); transition: height 0.3s, background-color 0.5s; }
         
-        /* 10초 타이머 오버레이 */
-        .boil-timer-tag { position: absolute; top: 5px; background: rgba(0,0,0,0.6); color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 11px; font-weight: bold; z-index: 10; display: none; }
+        /* 보글보글 물 진동 및 기포 효과 */
+        .pot.boiling-anim {
+            animation: potShake 0.3s infinite alternate ease-in-out;
+        }
+        @keyframes potShake {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-2px); }
+        }
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            animation: bubbleUp 0.6s infinite ease-in;
+        }
+        @keyframes bubbleUp {
+            0% { bottom: 5px; opacity: 1; transform: scale(0.5); }
+            100% { bottom: 45px; opacity: 0; transform: scale(1.3); }
+        }
 
-        /* 비주얼 재료 그래픽들 */
+        /* 10초 타이머 오버레이 */
+        .boil-timer-tag { position: absolute; top: 5px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; z-index: 10; display: none; }
+
+        /* 고명 그래픽 */
         .ramen-noodle-layer {
             position: absolute; bottom: 5px; width: 130px; height: 40px;
             background: #fbc02d; border-radius: 20px; display: none;
@@ -57,7 +76,6 @@ GAME_HTML = r"""
         }
         .pot-toppings { position: absolute; bottom: 12px; display: flex; gap: 4px; z-index: 5; justify-content: center; align-items: center; max-width: 140px; flex-wrap: wrap; }
         
-        /* 고명 비주얼 세부 스타일 정의 */
         .vis-scullion { width: 22px; height: 8px; background: #2e7d32; border-radius: 4px; transform: rotate(-15deg); border: 1px solid #1b5e20; display: inline-block; }
         .vis-egg { width: 28px; height: 20px; background: #ffffff; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .vis-egg-yolk { width: 12px; height: 12px; background: #ff9800; border-radius: 50%; }
@@ -80,7 +98,7 @@ GAME_HTML = r"""
 <body>
 <div id="game-container">
     <div id="header">
-        <div class="title-banner">🍜 슈의 4구 라면가게 (10초 보글보글 타이머)</div>
+        <div class="title-banner">🍜 슈의 4구 라면가게 (보글보글 기포 효과)</div>
         <div class="score-box">💰 매출: <span id="score">0</span>원</div>
     </div>
 
@@ -148,10 +166,10 @@ GAME_HTML = r"""
     </div>
 
     <div id="status-bubble">
-        🎮 <b>게임 플레이 가이드:</b><br>
+        🎮 <b>게임 가이드:</b><br>
         1. 냄비를 <b>정수기(🚰)</b>로 끌어가 물을 받으세요.<br>
-        2. 가스레인지에 올리면 <b>10초 카운트다운 후</b> 물이 팔팔 끓습니다!<br>
-        3. 끓는 국물에 실제 라면처럼 고명이 얹어지도록 재료를 넣고 <b>제출</b>하세요!
+        2. 가스레인지에 올리면 10초 뒤 <b>보글보글 물이 끓습니다.</b><br>
+        3. 물이 끓으면 <b>즉시 재료를 드래그해서 넣고</b> 제출하세요!
     </div>
 
     <div id="ingredient-shelf">
@@ -166,14 +184,14 @@ GAME_HTML = r"""
 </div>
 
 <script>
-    const TIME_LIMIT = 90; // 손님 제한시간 1분 30초
+    const TIME_LIMIT = 90;
     
     let score = 0;
     let pots = [
-        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, contents: []},
-        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, contents: []},
-        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, contents: []},
-        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, contents: []}
+        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, bubbleInterval: null, contents: []},
+        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, bubbleInterval: null, contents: []},
+        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, bubbleInterval: null, contents: []},
+        {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, bubbleInterval: null, contents: []}
     ];
     let customers = [null, null, null, null];
     let timers = [null, null, null, null];
@@ -201,8 +219,13 @@ GAME_HTML = r"""
     }
 
     function resetPotObj(i) {
-        if(pots[i] && pots[i].boilInterval) clearInterval(pots[i].boilInterval);
-        pots[i] = {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, contents: []};
+        if(pots[i]) {
+            if(pots[i].boilInterval) clearInterval(pots[i].boilInterval);
+            if(pots[i].bubbleInterval) clearInterval(pots[i].bubbleInterval);
+        }
+        pots[i] = {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, bubbleInterval: null, contents: []};
+        let potElem = document.getElementById(`pot-${i}`);
+        if(potElem) potElem.classList.remove('boiling-anim');
     }
 
     function genCust(i) {
@@ -231,7 +254,7 @@ GAME_HTML = r"""
             if(timeLE[i] <= 0) {
                 score = Math.max(0, score - 500);
                 document.getElementById('score').innerText = score;
-                logMsg(`⏰ ${i+1}번 손님이 기다리다 지쳐 떠났습니다! (-500원)`);
+                logMsg(`⏰ ${i+1}번 손님이 지쳐 떠났습니다! (-500원)`);
                 genCust(i);
             }
         }, 1000);
@@ -245,7 +268,7 @@ GAME_HTML = r"""
             resetPotObj(dragPotIdx);
             pots[dragPotIdx].water = 100;
             updatePot(dragPotIdx);
-            logMsg(`💧 ${dragPotIdx+1}번 냄비에 물을 받았습니다! 가스레인지로 옮겨 끓이세요.`);
+            logMsg(`💧 ${dragPotIdx+1}번 냄비에 물을 채웠습니다! 가스레인지로 옮기세요.`);
             dragPotIdx = null;
         }
     }
@@ -255,12 +278,11 @@ GAME_HTML = r"""
         if(dragPotIdx !== null) {
             resetPotObj(dragPotIdx);
             updatePot(dragPotIdx);
-            logMsg(`🗑️ ${dragPotIdx+1}번 냄비를 쓰레기통에 폐기했습니다.`);
+            logMsg(`🗑️ ${dragPotIdx+1}번 냄비를 버려 비웠습니다.`);
             dragPotIdx = null;
         }
     }
 
-    // 냄비를 화구에 배치 시 10초 카운트다운 끓이기 시작
     function dropStove(e, idx) {
         e.preventDefault();
         if(dragPotIdx !== null) {
@@ -272,7 +294,6 @@ GAME_HTML = r"""
             updatePot(src);
             updatePot(idx);
 
-            // 물은 차있고 아직 안끓는 상태면 10초 타이머 작동
             if(pots[idx].water >= 100 && !pots[idx].boiling && pots[idx].boilTimeLeft === 0) {
                 start10SecBoil(idx);
             }
@@ -280,12 +301,13 @@ GAME_HTML = r"""
         }
     }
 
+    // 10초 타이머 및 보글보글 애니메이션 실행
     function start10SecBoil(idx) {
         pots[idx].boilTimeLeft = 10;
         let btag = document.getElementById(`btimer-${idx}`);
         btag.style.display = 'block';
         btag.innerText = `🔥 10초`;
-        logMsg(`🔥 ${idx+1}번 냄비 물을 데우기 시작합니다! (10초 소요)`);
+        logMsg(`🔥 ${idx+1}번 냄비 데우는 중... (10초)`);
 
         pots[idx].boilInterval = setInterval(() => {
             pots[idx].boilTimeLeft--;
@@ -295,10 +317,33 @@ GAME_HTML = r"""
                 clearInterval(pots[idx].boilInterval);
                 pots[idx].boiling = true;
                 btag.style.display = 'none';
-                document.getElementById(`pw-${idx}`).style.backgroundColor = 'rgba(255, 152, 0, 0.7)';
-                logMsg(`♨️ ${idx+1}번 냄비 물이 팔팔 끓습니다! 재료를 넣으세요!`);
+                
+                document.getElementById(`pw-${idx}`).style.backgroundColor = 'rgba(255, 152, 0, 0.75)';
+                document.getElementById(`pot-${idx}`).classList.add('boiling-anim');
+                
+                // 보글보글 기포 생성 루프
+                startBubbling(idx);
+
+                logMsg(`♨️ ${idx+1}번 냄비 물이 보글보글 끓습니다! 이제 재료를 넣으세요!`);
             }
         }, 1000);
+    }
+
+    // 기포 생성 애니메이션
+    function startBubbling(idx) {
+        let pWater = document.getElementById(`pw-${idx}`);
+        pots[idx].bubbleInterval = setInterval(() => {
+            if(!pots[idx].boiling) return;
+            let bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            let size = Math.random() * 8 + 6;
+            bubble.style.width = size + 'px';
+            bubble.style.height = size + 'px';
+            bubble.style.left = (Math.random() * 80 + 10) + '%';
+            pWater.appendChild(bubble);
+
+            setTimeout(() => bubble.remove(), 600);
+        }, 150);
     }
 
     function dragIng(e, name) { dragIngName = name; }
@@ -316,7 +361,7 @@ GAME_HTML = r"""
                         return;
                     }
                     if(!pots[i].boiling) {
-                        logMsg("⚠️ 물이 아직 팔팔 끓지 않고 있습니다! (10초 기다려주세요)");
+                        logMsg("⚠️ 물이 아직 보글보글 끓지 않고 있습니다! (10초 기다려주세요)");
                         dragIngName = null;
                         return;
                     }
@@ -334,7 +379,6 @@ GAME_HTML = r"""
         init();
     });
 
-    // 냄비 속 실제 라면 비주얼 렌더링
     function updatePot(i) {
         let p = pots[i];
         document.getElementById(`pw-${i}`).style.height = p.water + '%';
@@ -345,7 +389,7 @@ GAME_HTML = r"""
         if(p.contents.includes("면")) {
             nd.style.display = 'block';
             if(p.contents.includes("라면스프")) {
-                document.getElementById(`pw-${i}`).style.backgroundColor = 'rgba(211, 47, 47, 0.85)'; // 붉은 국물
+                document.getElementById(`pw-${i}`).style.backgroundColor = 'rgba(211, 47, 47, 0.85)';
             }
         } else {
             nd.style.display = 'none';
@@ -371,7 +415,7 @@ GAME_HTML = r"""
     function serve(i) {
         let p = pots[i];
         if(!p.boiling || p.contents.length === 0) {
-            logMsg(`⚠️ ${i+1}번 화구에 완선된 라면이 없습니다!`);
+            logMsg(`⚠️ ${i+1}번 화구에 제출할 완벽한 라면이 없습니다!`);
             return;
         }
         
@@ -392,7 +436,7 @@ GAME_HTML = r"""
 
         if(missingCount === 0 && penaltyCount === 0) {
             score += 2000 + earned;
-            logMsg(`🎉 ${i+1}번 손님 대만족! 최고급 맞춤 라면! (+${2000+earned}원)`);
+            logMsg(`🎉 ${i+1}번 손님 대만족! 완벽 맞춤 라면 서빙! (+${2000+earned}원)`);
         } else {
             score += earned;
             logMsg(`👍 ${i+1}번 손님 서빙 완료 (+${earned}원)`);
@@ -408,5 +452,5 @@ GAME_HTML = r"""
 </html>
 """
 
-st.markdown("<h2 style='text-align: center; color: #ff3366;'>🍜 슈의 4구 라면가게 (10초 타이머 & 리얼 고명) 🍜</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #ff3366;'>🍜 슈의 4구 라면가게 (보글보글 기포 효과) 🍜</h2>", unsafe_allow_html=True)
 components.html(GAME_HTML, height=780, scrolling=False)
