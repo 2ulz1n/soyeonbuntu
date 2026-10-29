@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 파이썬 SyntaxError를 완벽히 차단하는 Raw String 단일 코드 블록
+# 파이썬 문법 에러를 완벽히 차단하는 Raw String 단일 코드 블록
 GAME_HTML = r"""
 <!DOCTYPE html>
 <html lang="ko">
@@ -54,7 +54,7 @@ GAME_HTML = r"""
         }
         .bubble {
             position: absolute;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.85);
             border-radius: 50%;
             animation: bubbleUp 0.6s infinite ease-in;
         }
@@ -98,7 +98,7 @@ GAME_HTML = r"""
 <body>
 <div id="game-container">
     <div id="header">
-        <div class="title-banner">🍜 슈의 4구 라면가게 (보글보글 기포 효과)</div>
+        <div class="title-banner">🍜 슈의 4구 라면가게 (물 즉시 10초 끓임)</div>
         <div class="score-box">💰 매출: <span id="score">0</span>원</div>
     </div>
 
@@ -168,8 +168,8 @@ GAME_HTML = r"""
     <div id="status-bubble">
         🎮 <b>게임 가이드:</b><br>
         1. 냄비를 <b>정수기(🚰)</b>로 끌어가 물을 받으세요.<br>
-        2. 가스레인지에 올리면 10초 뒤 <b>보글보글 물이 끓습니다.</b><br>
-        3. 물이 끓으면 <b>즉시 재료를 드래그해서 넣고</b> 제출하세요!
+        2. 물을 받는 즉시 <b>10초 뒤 보글보글</b> 기포가 끓어오릅니다!<br>
+        3. 물이 끓으면 화구 위에서 <b>재료를 드래그해서 넣고</b> 제출하세요!
     </div>
 
     <div id="ingredient-shelf">
@@ -226,6 +226,8 @@ GAME_HTML = r"""
         pots[i] = {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, bubbleInterval: null, contents: []};
         let potElem = document.getElementById(`pot-${i}`);
         if(potElem) potElem.classList.remove('boiling-anim');
+        let btag = document.getElementById(`btimer-${i}`);
+        if(btag) btag.style.display = 'none';
     }
 
     function genCust(i) {
@@ -262,13 +264,18 @@ GAME_HTML = r"""
 
     function dragPot(e, idx) { dragPotIdx = idx; }
 
+    // 정수기에서 물 넣자마자 즉시 10초 카운트다운 및 보글보글 스케줄 작동!
     function fillWater(e) {
         e.preventDefault();
         if(dragPotIdx !== null) {
-            resetPotObj(dragPotIdx);
-            pots[dragPotIdx].water = 100;
-            updatePot(dragPotIdx);
-            logMsg(`💧 ${dragPotIdx+1}번 냄비에 물을 채웠습니다! 가스레인지로 옮기세요.`);
+            let idx = dragPotIdx;
+            resetPotObj(idx);
+            pots[idx].water = 100;
+            updatePot(idx);
+            
+            // 물 넣자마자 10초 타이머 시작!
+            start10SecBoil(idx);
+            
             dragPotIdx = null;
         }
     }
@@ -294,20 +301,17 @@ GAME_HTML = r"""
             updatePot(src);
             updatePot(idx);
 
-            if(pots[idx].water >= 100 && !pots[idx].boiling && pots[idx].boilTimeLeft === 0) {
-                start10SecBoil(idx);
-            }
             dragPotIdx = null;
         }
     }
 
-    // 10초 타이머 및 보글보글 애니메이션 실행
+    // 물을 넣으면 즉시 작동하는 10초 타이머 및 보글보글 기포 생성 함수
     function start10SecBoil(idx) {
         pots[idx].boilTimeLeft = 10;
         let btag = document.getElementById(`btimer-${idx}`);
         btag.style.display = 'block';
         btag.innerText = `🔥 10초`;
-        logMsg(`🔥 ${idx+1}번 냄비 데우는 중... (10초)`);
+        logMsg(`💧 ${idx+1}번 냄비에 물 투입! 10초 후 보글보글 끓습니다.`);
 
         pots[idx].boilInterval = setInterval(() => {
             pots[idx].boilTimeLeft--;
@@ -321,15 +325,14 @@ GAME_HTML = r"""
                 document.getElementById(`pw-${idx}`).style.backgroundColor = 'rgba(255, 152, 0, 0.75)';
                 document.getElementById(`pot-${idx}`).classList.add('boiling-anim');
                 
-                // 보글보글 기포 생성 루프
+                // 보글보글 기포 지속 생성
                 startBubbling(idx);
 
-                logMsg(`♨️ ${idx+1}번 냄비 물이 보글보글 끓습니다! 이제 재료를 넣으세요!`);
+                logMsg(`♨️ ${idx+1}번 냄비 물이 보글보글 끓습니다! 재료를 투입하세요!`);
             }
         }, 1000);
     }
 
-    // 기포 생성 애니메이션
     function startBubbling(idx) {
         let pWater = document.getElementById(`pw-${idx}`);
         pots[idx].bubbleInterval = setInterval(() => {
@@ -361,7 +364,7 @@ GAME_HTML = r"""
                         return;
                     }
                     if(!pots[i].boiling) {
-                        logMsg("⚠️ 물이 아직 보글보글 끓지 않고 있습니다! (10초 기다려주세요)");
+                        logMsg("⚠️ 아직 10초가 지나지 않아 물이 보글보글 끓지 않았습니다!");
                         dragIngName = null;
                         return;
                     }
@@ -415,7 +418,7 @@ GAME_HTML = r"""
     function serve(i) {
         let p = pots[i];
         if(!p.boiling || p.contents.length === 0) {
-            logMsg(`⚠️ ${i+1}번 화구에 제출할 완벽한 라면이 없습니다!`);
+            logMsg(`⚠️ ${i+1}번 화구에 제출할 완성된 라면이 없습니다!`);
             return;
         }
         
@@ -452,5 +455,5 @@ GAME_HTML = r"""
 </html>
 """
 
-st.markdown("<h2 style='text-align: center; color: #ff3366;'>🍜 슈의 4구 라면가게 (보글보글 기포 효과) 🍜</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #ff3366;'>🍜 슈의 4구 라면가게 (물 즉시 10초 끓임) 🍜</h2>", unsafe_allow_html=True)
 components.html(GAME_HTML, height=780, scrolling=False)
