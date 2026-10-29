@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 st.set_page_config(
-    page_title="슈의 4구 라면가게 타이쿤 🍜",
+    page_title="소의 4구 라면가게 타이쿤 🍜",
     page_icon="🍜",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -14,13 +14,13 @@ GAME_HTML = r"""
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>슈의 라면가게</title>
+    <title>소의 라면가게</title>
     <style>
         * { box-sizing: border-box; user-select: none; font-family: 'Comic Sans MS', sans-serif; }
         body { margin: 0; padding: 5px; background-color: #ffeff5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         #game-container { position: relative; width: 1020px; height: 750px; background: linear-gradient(135deg, #ffd1dc 0%, #ffe4e1 100%); border: 8px solid #ff69b4; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; }
         #header { position: absolute; top: 10px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
-        .title-banner { background: #ff3366; color: white; padding: 6px 18px; border-radius: 25px; font-size: 19px; font-weight: bold; box-shadow: 3px 3px 0px #b3003b; }
+        .title-banner { background: #ff3366; color: white; padding: 6px 18px; border-radius: 25px; font-size: 20px; font-weight: bold; box-shadow: 3px 3px 0px #b3003b; }
         
         .header-right { display: flex; align-items: center; gap: 10px; }
         .score-box { background: #fff; border: 3px solid #ff69b4; padding: 5px 15px; border-radius: 15px; font-size: 18px; font-weight: bold; color: #d8004e; }
@@ -91,7 +91,6 @@ GAME_HTML = r"""
 
         #status-bubble { position: absolute; top: 190px; right: 20px; width: 400px; height: 230px; background: white; border: 4px solid #ff69b4; border-radius: 15px; padding: 14px; font-size: 13px; font-weight: bold; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: #333; line-height: 1.5; }
 
-        /* 브레이크 타임 (일시정지) 모달창 스타일 */
         #break-modal {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -127,7 +126,7 @@ GAME_HTML = r"""
 <body>
 <div id="game-container">
     <div id="header">
-        <div class="title-banner">🍜 슈의 4구 라면가게 (브레이크타임 기능)</div>
+        <div class="title-banner">🐮 소의 라면가게 🍜</div>
         <div class="header-right">
             <button class="break-btn" onclick="toggleBreakTime()">☕ 브레이크 타임</button>
             <div class="score-box">💰 매출: <span id="score">0</span>원</div>
@@ -198,9 +197,10 @@ GAME_HTML = r"""
     </div>
 
     <div id="status-bubble">
-        🎮 <b>게임 가이드:</b><br>
-        1. 상단의 <b>[☕ 브레이크 타임]</b> 버튼을 누르면 시간이 일시정지됩니다!<br>
-        2. 정수기 물 받기 ➔ 10초 끓이기 ➔ 재료 투입 후 손님에게 서빙하세요.
+        🐮 <b>소의 라면가게에 오신 것을 환영합니다!</b><br>
+        1. 냄비를 <b>정수기(🚰)</b>로 끌어가 물을 받으세요.<br>
+        2. 물을 받고 10초 뒤 <b>보글보글 물이 끓으면</b> 재료를 넣으세요!<br>
+        3. 피곤할 땐 <b>[☕ 브레이크 타임]</b>을 눌러 잠시 휴식하세요.
     </div>
 
     <div id="ingredient-shelf">
@@ -213,7 +213,6 @@ GAME_HTML = r"""
         <div class="ingredient" draggable="true" ondragstart="dragIng(event, '떡')"><div style="font-size:32px;">🍡</div><div style="font-size:11px;font-weight:bold;">떡</div></div>
     </div>
 
-    <!-- 브레이크 타임 (일시정지) 모달창 -->
     <div id="break-modal">
         <div class="break-modal-box">
             <h2 style="color: #9c27b0; margin-top: 0;">☕ 브레이크 타임 (영업 일시정지)</h2>
@@ -227,7 +226,7 @@ GAME_HTML = r"""
     const TIME_LIMIT = 90;
     
     let score = 0;
-    let isPaused = false; // 일시정지 상태 플래그
+    let isPaused = false;
 
     let pots = [
         {water: 0, boiling: false, boilTimeLeft: 0, boilInterval: null, bubbleInterval: null, contents: []},
@@ -252,7 +251,6 @@ GAME_HTML = r"""
         b.innerHTML = msg + "<br>" + b.innerHTML;
     }
 
-    // 브레이크 타임 토글 함수 (일시정지 / 재개)
     function toggleBreakTime() {
         isPaused = !isPaused;
         let modal = document.getElementById('break-modal');
@@ -304,7 +302,7 @@ GAME_HTML = r"""
         document.getElementById(`c-order-${i}`).innerHTML = html;
 
         timers[i] = setInterval(() => {
-            if (isPaused) return; // 일시정지 중이면 손님 타이머도 대기
+            if (isPaused) return;
 
             timeLE[i]--;
             document.getElementById(`c-text-${i}`).innerText = fmt(timeLE[i]);
@@ -357,7 +355,6 @@ GAME_HTML = r"""
         }
     }
 
-    // 10초 끓이기 타이머 (브레이크 타임 연동)
     function start10SecBoil(idx) {
         pots[idx].boilTimeLeft = 10;
         let btag = document.getElementById(`btimer-${idx}`);
@@ -366,7 +363,7 @@ GAME_HTML = r"""
         logMsg(`💧 ${idx+1}번 냄비 물 투입! 10초 후 보글보글 끓습니다.`);
 
         pots[idx].boilInterval = setInterval(() => {
-            if (isPaused) return; // 일시정지 중이면 끓이기 타이머도 정지
+            if (isPaused) return;
 
             pots[idx].boilTimeLeft--;
             btag.innerText = `🔥 ${pots[idx].boilTimeLeft}초`;
@@ -507,5 +504,5 @@ GAME_HTML = r"""
 </html>
 """
 
-st.markdown("<h2 style='text-align: center; color: #ff3366;'>🍜 슈의 4구 라면가게 (브레이크타임 일시정지) 🍜</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #ff3366;'>🐮 소의 4구 라면가게 🍜</h2>", unsafe_allow_html=True)
 components.html(GAME_HTML, height=780, scrolling=False)
